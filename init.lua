@@ -193,11 +193,12 @@ function climate(x, z, y, n_terr, n_terr2)
 
 	-- no Fohn? Westies have it mild
 	local temp_x = 50 - blend
+	--temp_x = (-0.0017*x) + 50 + temp_x
 
 	-- Easterners?
-	if x > 0 + (n_terr * 400) then --offset east-west border with some noise
+	if x > 0 + math.random(0,30) + (n_terr * 400) then --offset east-west border with some noise
 		-- linear decrease, intercept at 100 (don't use in -x)
-		temp_x = (-0.0017*x) + 100 - blend
+		temp_x = (-0.0017*x) + 50 + temp_x --100 - blend
 	end
 
 	--We are Southern Hemisphererers here!
@@ -206,7 +207,7 @@ function climate(x, z, y, n_terr, n_terr2)
 	local temp_z = (0.0017*z) + 50 - blend
 
 	--Mountain tops ought to be cold!
-	--decreasing temp with hieght...and combine previous two as baseline
+	--decreasing temp with height...and combine previous two as baseline
 	local temp = (-0.21*y) + ((temp_z + temp_x)/2) - blend
 
 	--blur edges
@@ -221,8 +222,8 @@ function climate(x, z, y, n_terr, n_terr2)
 
 	----poitive, east coast. Dry inland
 	--linear increase,
-	if x > 0 + (n_terr * 400) then
-		hum = (0.002*x) + blend
+	if x > 0--[[ + math.random(0,30) + (n_terr * 400)--]] then
+		hum = math.min(50,math.random(0,20)+(0.2*(math.max(0,800-x)))) + (0.002*x) + blend
 	--increasing humid from far x to x= 0,(rain shadow)
 	else  --negative , west coast. Wet inland
 		--linear increase,
@@ -235,9 +236,7 @@ function climate(x, z, y, n_terr, n_terr2)
 		hum = hum + (hum*0.05)
 	end
 
-	
-
-	if numlakes ~= nil and numlakes ~= 0 then
+	--[[if numlakes ~= nil and numlakes ~= 0 then
 		for i = 0, numlakes do
 			laker = (180 + (75 * n_terr) + (75 * n_terr2)) * (1 + (y/(55 + (5 * n_terr2))))
 			if x < lakes[n].x + laker and x > lakes[n].x - laker
@@ -245,8 +244,8 @@ function climate(x, z, y, n_terr, n_terr2)
 				hum = hum + 0.01 * (math.abs(x - lakes[n].x) + math.abs(z - lakes[n].z))
 			end
 		end
-	end
-	hum = hum + math.random(-4, 4)
+	end--]]
+	hum = hum + math.random(-8, 8)
 
 return temp, hum
 --done climate calculations
@@ -351,6 +350,26 @@ local np_terrain2 = {
    lacunarity = 2.5,
 }
 
+-- 2D Terrain 3 and 4 - for fake X and Z, respectively
+local np_terrain3 = {
+   offset = 0,
+   scale = 0.02,
+   spread = {x = 2048, y = 2048, z = 2048},
+   seed = 0,
+   octaves = 4,
+   persist = 0.6,
+   lacunarity = 2.5,
+}
+local np_terrain4 = {
+   offset = 0,
+   scale = 0.02,
+   spread = {x = 2048, y = 2048, z = 2048},
+   seed = 1,
+   octaves = 4,
+   persist = 0.6,
+   lacunarity = 2.5,
+}
+
 
 -- 3D Caves 1
 --used by: fissures in basement rock,
@@ -397,6 +416,9 @@ local np_strata = {
 -- generation of the first mapchunk, to minimise memory use.
 local nobj_terrain = nil
 local nobj_terrain2 = nil
+
+local nobj_terrain3 = nil
+local nobj_terrain4 = nil
 local nobj_cave = nil
 local nobj_cave2 = nil
 local nobj_strata = nil
@@ -408,6 +430,9 @@ nobj_terr2_i = nil
 -- mapchunks, therefore minimising memory use.
 local nvals_terrain = {}
 local nvals_terrain2 = {}
+
+local nvals_terrain3 = {}
+local nvals_terrain4 = {}
 local nvals_cave = {}
 local nvals_cave2 = {}
 local nvals_strata = {}
@@ -479,6 +504,9 @@ table.insert(minetest.registered_on_generateds, 1, (function(minp, maxp, seed)
 	-- the first mapchunk when 'nobj_terrain' is 'nil'.
 	nobj_terrain = nobj_terrain or minetest.get_perlin_map(np_terrain, chulenxz)
 	nobj_terrain2 = nobj_terrain2 or minetest.get_perlin_map(np_terrain2, chulenxz)
+	
+    nobj_terrain3 = nobj_terrain3 or minetest.get_perlin_map(np_terrain3, chulenxz)
+    nobj_terrain4 = nobj_terrain4 or minetest.get_perlin_map(np_terrain4, chulenxz)
 	nobj_cave = nobj_cave or minetest.get_perlin_map(np_cave, chulen)
 	nobj_cave2 = nobj_cave2 or minetest.get_perlin_map(np_cave2, chulen)
 	nobj_strata = nobj_strata or minetest.get_perlin_map(np_strata, chulen)
@@ -490,6 +518,9 @@ table.insert(minetest.registered_on_generateds, 1, (function(minp, maxp, seed)
 	-- Set the buffer parameter to use and reuse 'nvals_X' for this.
 	nobj_terrain:get2dMap_flat(minposxz, nvals_terrain)
 	nobj_terrain2:get2dMap_flat(minposxz, nvals_terrain2)
+
+    nobj_terrain3:get2dMap_flat(minposxz, nvals_terrain3)
+    nobj_terrain4:get2dMap_flat(minposxz, nvals_terrain4)
 	nobj_cave:get3dMap_flat(minposxyz, nvals_cave)
 	nobj_cave2:get3dMap_flat(minposxyz, nvals_cave2)
 	nobj_strata:get3dMap_flat(minposxyz, nvals_strata)
@@ -535,14 +566,16 @@ table.insert(minetest.registered_on_generateds, 1, (function(minp, maxp, seed)
 
 				-----------
 				--Noises
-				local n_terr  = nvals_terrain[nixz]
+				local n_terr   = nvals_terrain[nixz]
 				local n_terr2  = nvals_terrain2[nixz]
-				local n_cave = nvals_cave[nixyz]
-				local n_cave2 = nvals_cave2[nixyz]
-				local ab_cave = math.abs(n_cave)
+				local n_terr3  = nvals_terrain3[nixz]
+                local n_terr4  = nvals_terrain4[nixz]
+				local n_cave   = nvals_cave[nixyz]
+				local n_cave2  = nvals_cave2[nixyz]
+				local ab_cave  = math.abs(n_cave)
 				local ab_cave2 = math.abs(n_cave2)
 				local n_strata = nvals_strata[nixyz]
-				local ab_stra = math.abs(n_strata)
+				local ab_stra  = math.abs(n_strata)
 
 				--Get the node underneath
 				local nodu  = data[(vi - ystridevm)]
@@ -551,7 +584,10 @@ table.insert(minetest.registered_on_generateds, 1, (function(minp, maxp, seed)
 				-- Math
 
 				--absolute for x (for symmetry on both sides of map)
-				local xab = math.abs(x)
+				x2 = n_terr3 * 1000000 -- * YMAX
+				local xab = math.abs(x2)
+				
+			--	minetest.chat_send_all(xab)
 				--x axis terrain gradient. 0 at centre. 1 at edges.
 				--Used by equations to adjust along x axis
 				local xtgrad = (xab/YMAX)
@@ -571,10 +607,14 @@ table.insert(minetest.registered_on_generateds, 1, (function(minp, maxp, seed)
 
 				--Wave period. "Roll". i.e. how wide/steep and they are.
 				--Gradient widens the ranges towards the edges.
-				local x_roll = XRS + (XRS * xtgrad)   --x axis
+				local x_roll = 50 * (XRS + (XRS * xtgrad))   --x axis
+
+				if y == 50 then
+				    --minetest.chat_send_all(n_terr3 .. " and " .. n_terr4)--minetest.chat_send_all("x2: " .. x2 .. " x_roll: " .. x_roll)
+				end
 
 				--The Wave!
-				local xwav = (whs*math.sin(x/x_roll))    -- north south wave (main ranges)
+				local xwav = (whs*math.sin(x2/x_roll))--x/x_roll))    -- north south wave (main ranges)
 
 
 				--Base Wave Density.
@@ -634,6 +674,9 @@ table.insert(minetest.registered_on_generateds, 1, (function(minp, maxp, seed)
 				local nocave = true		--basement rock caves
 				local basin = false		--ocean basin
 
+                -- Fake Z to go with the X
+                local z2 = n_terr4 * 1000000 -- * YMAX
+            	local zab = math.abs(z2)--z)               					
 
 				--------------------------------------------------
 				--THE DECISION TREE
@@ -650,8 +693,7 @@ table.insert(minetest.registered_on_generateds, 1, (function(minp, maxp, seed)
 					-- Ocean Basin
 					-- This is so the oceans aren't a flat 5m deep boring yawn.
 
-					local zab = math.abs(z)
-					local inn_terr = 1 - n_terr
+                    local inn_terr = 1 - n_terr
 					local inn_terr2 = 1 - n_terr2
 					local shelfnoi = ((inn_terr ^ 3) * CONOI) -- softens cliffs
 					local shelfsl = ((96 + (inn_terr2 *95))*y) - 100 --sets slope
@@ -672,10 +714,12 @@ table.insert(minetest.registered_on_generateds, 1, (function(minp, maxp, seed)
 					--Central Caldera
 					--To give a water feature in the middle of the map.
 					--define a square which will be the lake, then soften it with noise
+					xabr = math.abs(x) -- real x and z
+					zabr = math.abs(z)
 					local calr = (300 + (150 * n_terr) + (50 * n_terr2)) * (1 + (y/50))
 					local cald = -90 + (47 * n_terr) + (47 * n_terr2)
-					if xab < calr
-					and zab < calr
+					if xabr < calr
+					and zabr < calr
 					and y > cald then
 						basin = true
 					end
@@ -684,12 +728,12 @@ table.insert(minetest.registered_on_generateds, 1, (function(minp, maxp, seed)
 					--caldera island
 					local calir = (45 + (15 * n_terr) + (15 * n_terr2)) * (1 - (y/(25 + n_terr2)))
 					local calid = -1000 - (250 * n_terr) - (250 * n_terr2)
-					if xab < calir
-					and zab < calir
+					if xabr < calir
+					and zabr < calir
 					and y > calid
 				 	then
-						if xab < calir/3
-						and zab < calir/3
+						if xabr < calir/3
+						and zabr < calir/3
 						and y < -150 + (50 * n_terr2)	--match to calir y cut off
 						then
 							--we have a lava chamber.
@@ -717,7 +761,7 @@ table.insert(minetest.registered_on_generateds, 1, (function(minp, maxp, seed)
 							end
 						end
 					end
-
+                    
 
 					----------------------------------
 					--Random lakes
@@ -732,7 +776,7 @@ table.insert(minetest.registered_on_generateds, 1, (function(minp, maxp, seed)
 
 						--Rivers draining them
 						if lakes[n].r then
-                            local channel = (40 +(n_terr2*30))*math.cos(xab/36)
+                            local channel = (40 +(n_terr2*30))*math.cos(xabr/36)
         					local w = (16 + (n_terr2*7) + (10*xtgrad)) * (1 + (y/(14 - (3*xtgrad))))
         					if z <= lakes[n].z + channel + w
         					and z >= lakes[n].z + channel - w
@@ -744,11 +788,15 @@ table.insert(minetest.registered_on_generateds, 1, (function(minp, maxp, seed)
 
                     ----------------------------------
                     --A river running out of the caldera in some direction
-                    local cx = (n_terr2*30)*math.cos(xab/42)
-                    local cz = (n_terr*30)*math.cos(xab/21)
+                    local cx = (n_terr2*30)*math.cos(xabr/42)
+                    local cz = (n_terr*30)*math.cos(xabr/21)
                     local w = (22 + (n_terr2*9) + (10*xtgrad)) * (1 + (y/(12 - (3*xtgrad))))
                     if x <= cx + w and x >= cx - w and z <= cz + w and z >= cz - w then
                         basin = true
+                    end
+
+                    if (y == 0) and basin then
+                        minetest.chat_send_all("basin")
                     end
 
 --[[					----------------------------------
@@ -1021,7 +1069,7 @@ table.insert(minetest.registered_on_generateds, 1, (function(minp, maxp, seed)
 										--We are above sea level...	now we need to know climate.
 										local temp
 										local hum
-										temp, hum = climate(x, z, y, n_terr, n_terr2)
+										temp, hum = climate(x2, z2, y, n_terr, n_terr2)
 
 										--We have some fiddly coastal stuff.
 										--on a node, that is sea surface or one above
@@ -1131,7 +1179,7 @@ table.insert(minetest.registered_on_generateds, 1, (function(minp, maxp, seed)
 						--now we need climate data.
 						local temp
 						local hum
-						temp, hum = climate(x, z, y, n_terr, n_terr2)
+						temp, hum = climate(x2, z2, y, n_terr, n_terr2)
 
 						--Check if stable below
 						--doing this rather than stab, becasue that allows stacking
@@ -1165,7 +1213,7 @@ table.insert(minetest.registered_on_generateds, 1, (function(minp, maxp, seed)
 						--i.e. it is on the can_sur list )
 						-- bearing in mind we don't know yet about the ignore nodes.
 						if can_sur and nodu ~= MISCID.c_ignore and nocave then
-							if xab < 500 + math.random(-100, 100) then
+							--[[if xab < 500 + math.random(-100, 100) then
 								if nodu ~= c_ice and nodu ~= c_dsand then
 									data[vi] = c_ice
 									void = false
@@ -1174,7 +1222,7 @@ table.insert(minetest.registered_on_generateds, 1, (function(minp, maxp, seed)
 									void = false
 								end
 							--Going through Temp/humidity combos
-							elseif temp > 67  then
+							else--]]if temp > 67  then
 								--hot and wet = rainforest
 								if hum > 67 then
 									--what's the coastline like?
@@ -1397,11 +1445,15 @@ table.insert(minetest.registered_on_generateds, 1, (function(minp, maxp, seed)
 						 --We need these again
 						 local n_terr  = nvals_terrain[nixz]
 						 local n_terr2  = nvals_terrain[nixz]
+						 local n_terr3 = nvals_terrain[nixz]
+                         local n_terr4 = nvals_terrain[nixz]
+                         local x2 = n_terr3 * YMAX
+                         local z2 = n_terr4 * YMAX
 
 						 --get climate data
 						 local temp
 						 local hum
-						 temp, hum = climate(x, z, y, n_terr, n_terr2)
+						 temp, hum = climate(x2, z2, y, n_terr, n_terr2)
 
 						 -- pack it in a table, for plants API
 						 local conditions = {
