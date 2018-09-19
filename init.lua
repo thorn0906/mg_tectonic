@@ -194,8 +194,10 @@ function climate(x, z, y, n_terr, n_terr2)
 	-- no Fohn? Westies have it mild
 	local temp_x = 50 - blend
 
+    local lon_blend = math.random(-20,20) + n_terr * 200 --offset east-west border with some noise
+
 	-- Easterners?
-	if x > 0 + (n_terr * 400) then --offset east-west border with some noise
+	if x > lon_blend then
 		-- linear decrease, intercept at 100 (don't use in -x)
 		temp_x = (-0.0017*x) + 100 - blend
 	end
@@ -221,7 +223,7 @@ function climate(x, z, y, n_terr, n_terr2)
 
 	----poitive, east coast. Dry inland
 	--linear increase,
-	if x > 0 + (n_terr * 400) then
+	if x > lon_blend then
 		hum = (0.002*x) + blend
 	--increasing humid from far x to x= 0,(rain shadow)
 	else  --negative , west coast. Wet inland
@@ -1165,16 +1167,16 @@ table.insert(minetest.registered_on_generateds, 1, (function(minp, maxp, seed)
 						--i.e. it is on the can_sur list )
 						-- bearing in mind we don't know yet about the ignore nodes.
 						if can_sur and nodu ~= MISCID.c_ignore and nocave then
-							if xab < 500 + math.random(-100, 100) then
+							--[[if xab < 500 + math.random(-100, 100) then
 								if nodu ~= c_ice and nodu ~= c_dsand then
 									data[vi] = c_ice
 									void = false
 								else
 									data[vi] = c_snowbl
 									void = false
-								end
+								end--]] -- Non-snowy caldera?
 							--Going through Temp/humidity combos
-							elseif temp > 67  then
+							if temp > 67  then
 								--hot and wet = rainforest
 								if hum > 67 then
 									--what's the coastline like?
