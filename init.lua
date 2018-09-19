@@ -37,6 +37,9 @@ if mgtec.registered_on_first_mapgen then -- Run callbacks
 local YMAX = 33000
 local YMIN = -33000
 
+-- Scale for fake x and z
+local COORD_SCALE = 1000000
+
  --sealevel
 local SEA = 0
 
@@ -172,12 +175,18 @@ end
 
 ------------------------------
 --Climate Calculations.
-function climate(x, z, y, n_terr, n_terr2)
+function climate(x1, z1, y, n_terr, n_terr2, makefakex)
 	if n_terr == nil then -- So it can be used outside of the loop
 		n_terr = nobj_terr_i:get2d({x=x,y=z})
 	end
 	if n_terr2 == nil then
 		n_terr2 = nobj_terr2_i:get2d({x = x, y = z})
+	end
+	x = x1
+	z = z1
+	if makefakex then
+		x = nobj_terr3_i:get2d({x = x1, y = z1}) * COORD_SCALE
+		z = nobj_terr4_i:get2d({x = x1, y = z1}) * COORD_SCALE
 	end
 	--east = + x, west = - x, south = -z, n = + z
 	--Climate is decided by:
@@ -426,6 +435,9 @@ local nobj_strata = nil
 nobj_terr_i = nil
 nobj_terr2_i = nil
 
+nobj_terr3_i = nil
+nobj_terr4_i = nil
+
 -- Localise noise buffer table outside the loop, to be re-used for all
 -- mapchunks, therefore minimising memory use.
 local nvals_terrain = {}
@@ -458,7 +470,7 @@ minetest.register_on_mapgen_init(function(mapgen_params)
 		num_lakes = math.random(0,20)
 		lakes = {}
 		for i = 0, num_lakes do
-		    lakes[i] = {x = math.random(-SHELFX,SHELFX), z = math.random(-SHELFZ,SHELFZ), r = math.random(0,4) > 0}
+		    lakes[i] = {x = math.random(YMIN,YMAX), z = math.random(YMIN,YMAX), r = math.random(0,4) > 0}
 		end
 	end
 end)
@@ -511,7 +523,10 @@ table.insert(minetest.registered_on_generateds, 1, (function(minp, maxp, seed)
 	nobj_cave2 = nobj_cave2 or minetest.get_perlin_map(np_cave2, chulen)
 	nobj_strata = nobj_strata or minetest.get_perlin_map(np_strata, chulen)
 	nobj_terr_i = nobj_terr_i or minetest.get_perlin(np_terrain.seed, np_terrain.octaves, np_terrain.persist, np_terrain.scale)
-	nobj_terr2_i = nobj_terr_i or minetest.get_perlin(np_terrain2.seed, np_terrain2.octaves, np_terrain2.persist, np_terrain2.scale)
+	nobj_terr2_i = nobj_terr2_i or minetest.get_perlin(np_terrain2.seed, np_terrain2.octaves, np_terrain2.persist, np_terrain2.scale)
+	
+	nobj_terr3_i = nobj_terr3_i or minetest.get_perlin(np_terrain3.seed, np_terrain3.octaves, np_terrain3.persist, np_terrain3.scale)
+	nobj_terr4_i = nobj_terr4_i or minetest.get_perlin(np_terrain4.seed, np_terrain4.octaves, np_terrain4.persist, np_terrain4.scale)
 
 	-- Create a flat array of noise values from the perlin map, with the
 	-- minimum point being 'minp'.
@@ -584,7 +599,7 @@ table.insert(minetest.registered_on_generateds, 1, (function(minp, maxp, seed)
 				-- Math
 
 				--absolute for x (for symmetry on both sides of map)
-				x2 = n_terr3 * 1000000 -- * YMAX
+				x2 = n_terr3 * COORD_SCALE -- * YMAX
 				local xab = math.abs(x2)
 				
 			--	minetest.chat_send_all(xab)
@@ -675,7 +690,7 @@ table.insert(minetest.registered_on_generateds, 1, (function(minp, maxp, seed)
 				local basin = false		--ocean basin
 
                 -- Fake Z to go with the X
-                local z2 = n_terr4 * 1000000 -- * YMAX
+                local z2 = n_terr4 * COORD_SCALE -- * YMAX
             	local zab = math.abs(z2)--z)               					
 
 				--------------------------------------------------
