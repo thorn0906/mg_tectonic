@@ -425,9 +425,12 @@ local data2 = {}
 
 local numlakes = nil
 local lakes = nil
+local spawnpoint = {x = 0, z = 0}
 
 minetest.register_on_mapgen_init(function(mapgen_params)
 	math.randomseed(mapgen_params.seed)
+    spawnpoint = {x = math.random(-SHELFX, SHELFX), z = math.random(-SHELFZ, SHELFZ)}
+	
 	-- some things need to be random, but stay constant throughout the loop
     
 	-- number of lakes
@@ -1468,9 +1471,36 @@ end))
 -----------------------------------------------------------
 --SPAWN PLAYER
 
+--spawnpoints = {} -- We don't want them respawning somewhere else! (That could be interesting, though.)
+
+local function get_far_node(pos, player)
+	local node = minetest.get_node(pos)
+	if node.name == "ignore" then
+	    minetest.emerge_area(pos, pos)
+	    minetest.after(3,function()
+	        spawnplayer(player)
+	    end)
+	    return node, false
+	end
+	return node, true
+end
+
 --Start on top of the island
+--Actually, at a random location
 function spawnplayer(player)
-    local pos = {x = 0, y = 30, z = 0}
+    local pos = spawnpoint
+    minetest.chat_send_all("x:"..pos.x.." z:"..pos.z)
+    for i = 0, 320 do
+        pos.y = i
+        node, val = get_far_node(pos, player)
+        if not val then
+            pos.y = 1000 -- It'll take long enough to fall you won't notice anything!
+            break
+        end
+        if node.name == "air" then
+            break
+        end
+    end
 	player:setpos(pos)
 	-- Get the inventory of the player
 	local inventory = player:get_inventory()
@@ -1480,13 +1510,14 @@ function spawnplayer(player)
 	inventory:add_item("main", "default:torch 10")
 	inventory:add_item("main", "default:ladder 20")
 	inventory:add_item("main", "default:apple 5")--]]
-	inventory:add_item("main", "boats:boat")
+	--inventory:add_item("main", "boats:boat")
 
 end
 
 
 -----------------------------------------------------------
 minetest.register_on_newplayer(function(player)
+    --spawnpoints[player] = {x = 0, z = 0}
 	spawnplayer(player)
 end)
 
